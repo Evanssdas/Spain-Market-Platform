@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=70", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spain-power-market-platform"
+version = "0.1.0"
+description = "Component-based Spanish power-market forecasting and risk platform"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Evangelos Daskalakis"}]
+dependencies = [
+  "holidays>=0.70,<1",
+  "joblib>=1.4,<2",
+  "lightgbm>=4.5,<5",
+  "numpy>=2.0,<3",
+  "pandas>=2.2,<3",
+  "pyarrow>=17,<20",
+  "PyYAML>=6.0,<7",
+  "requests>=2.32,<3",
+  "scikit-learn>=1.5,<2",
+]
+
+[project.scripts]
+spain-power = "spain_power.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
