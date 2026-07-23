@@ -1,0 +1,61 @@
+{
+  "data": {
+    "type": "balance-electrico",
+    "attributes": {
+      "content": [
+        {
+          "type": "Renewable",
+          "attributes": {
+            "content": [
+              {
+                "type": "Wind",
+                "attributes": {
+                  "values": [
+                    {
+                      "value": 1000,
+                      "datetime": "2026-01-01T00:00:00+01:00"
+                    },
+                    {
+                      "value": 1200,
+                      "datetime": "2026-01-01T01:00:00+01:00"
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "Solar photovoltaic",
+                "attributes": {
+                  "values": [
+                    {
+                      "value": 0,
+                      "datetime": "2026-01-01T00:00:00+01:00"
+                    },
+                    {
+                      "value": 10,
+                      "datetime": "2026-01-01T01:00:00+01:00"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "Demand at busbars",
+          "attributes": {
+            "values": [
+              {
+                "value": 25000,
+                "datetime": "2026-01-01T00:00:00+01:00"
+              },
+              {
+                "value": 26000,
+                "datetime": "2026-01-01T01:00:00+01:00"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
