@@ -9,28 +9,69 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: spain-power-daily
+  cancel-in-progress: false
+
 jobs:
   forecast:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -r requirements.txt
-      - run: pip install -e .
-      - name: Check bootstrap
+
+      - name: Install dependencies
         run: |
-          test -f models/spain_power_bundle.joblib || {
-            echo "Bootstrap required: collect history and train locally first."
-            exit 1
-          }
-      - run: python -m spain_power daily-forecast
-      - name: Commit outputs
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Repair and validate repository
+        run: |
+          python scripts/repair_and_prepare.py
+          pip install -e . --force-reinstall --no-deps
+          python -m pytest
+
+      - name: Resolve Spanish market dates
+        id: dates
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          from datetime import timedelta
+          from zoneinfo import ZoneInfo
+          from datetime import datetime
+
+          today = datetime.now(ZoneInfo("Europe/Madrid")).date()
+          print(f"today={today.isoformat()}")
+          print(f"yesterday={(today - timedelta(days=1)).isoformat()}")
+          print(f"tomorrow={(today + timedelta(days=1)).isoformat()}")
+          PY
+
+      - name: Bootstrap historical data and model
+        if: ${{ hashFiles('models/spain_power_bundle.joblib') == '' }}
+        run: |
+          rm -rf data models reports logs
+          python -m spain_power collect-history \
+            --start 2025-01-01 \
+            --end "${{ steps.dates.outputs.yesterday }}"
+          python -m spain_power train
+
+      - name: Refresh data and forecast tomorrow
+        run: python -m spain_power daily-forecast
+
+      - name: Commit repaired code, model and outputs
         run: |
           git config user.name "spain-power-bot"
           git config user.email "actions@users.noreply.github.com"
+          git add config.yaml requirements.txt README.md docs src tests scripts
           git add data/processed models reports logs
-          git diff --cached --quiet || git commit -m "Spain daily forecast $(date -u +%F)"
-          git push
+          git diff --cached --quiet || git commit -m "Bootstrap/update Spain forecast $(date -u +%F)"
+          git pull --rebase origin main
+          git push origin main
