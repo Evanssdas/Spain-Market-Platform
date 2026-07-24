@@ -19,18 +19,29 @@ def write(relative: str, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def replace_function_block(
+    text: str,
+    start_name: str,
+    next_name: str,
+    replacement: str,
+) -> str:
+    start = text.index(f"def {start_name}")
+    end = text.index(f"\ndef {next_name}", start)
+    return text[:start] + replacement.rstrip() + "\n\n" + text[end + 1 :]
+
+
 def rename_daily_energy_units() -> None:
     candidates = [
         ROOT / "config.yaml",
         ROOT / "README.md",
         *(ROOT / "src").rglob("*.py"),
+        *(ROOT / "tests").rglob("*.py"),
         *(ROOT / "docs").rglob("*.md"),
     ]
     for path in candidates:
         if not path.exists():
             continue
         text = path.read_text(encoding="utf-8")
-        # Rename identifiers that end in _mw, without corrupting eur_mwh.
         text = re.sub(r"_mw\b", "_mwh", text)
         text = re.sub(r"\bMW\b", "MWh", text)
         path.write_text(text, encoding="utf-8")
@@ -39,49 +50,69 @@ def rename_daily_energy_units() -> None:
 def repair_config() -> None:
     path = ROOT / "config.yaml"
     config = yaml.safe_load(path.read_text(encoding="utf-8"))
+
     source = config["sources"]["redata"]
     source["base_url"] = "https://apidatos.ree.es/es/datos"
     source["time_trunc"] = "day"
+    source["chunk_days"] = 31
 
     aliases = config["columns"]["redata_aliases"]
-    aliases["demand_mwh"] = [
-        "Demand",
-        "Demand at busbars",
-        "Demand at transmission busbars",
-        "Transport demand (b.c.)",
-        "Demanda",
-        "Demanda transporte (b.c.)",
-        "Demanda en b.c.",
-        "Demanda en barras de central",
-    ]
-    aliases["wind_mwh"] = ["Wind", "Eólica", "Eolica"]
-    aliases["solar_pv_mwh"] = ["Solar photovoltaic", "Solar fotovoltaica"]
-    aliases["solar_thermal_mwh"] = [
-        "Solar thermal",
-        "Solar térmica",
-        "Solar termica",
-    ]
-    aliases["nuclear_mwh"] = ["Nuclear"]
-    aliases["hydro_mwh"] = ["Hydro", "Hydraulic", "Hidráulica", "Hidraulica"]
-    aliases["pumped_storage_mwh"] = [
-        "Pumped storage",
-        "Pumped-storage generation",
-        "Turbinación bombeo",
-        "Turbinacion bombeo",
-    ]
-    aliases["pumped_consumption_mwh"] = [
-        "Pumped storage consumption",
-        "Pumping consumption",
-        "Consumos en bombeo",
-        "Consumo en bombeo",
-    ]
-    aliases["combined_cycle_mwh"] = ["Combined cycle", "Ciclo combinado"]
-    aliases["net_imports_mwh"] = [
-        "International exchanges balance",
-        "Cross-border exchange balance",
-        "Saldo intercambios internacionales",
-        "Saldo de intercambios",
-    ]
+    aliases.clear()
+    aliases.update(
+        {
+            "demand_mwh": [
+                "Demand",
+                "Demand at busbars",
+                "Demand at transmission busbars",
+                "Transport demand (b.c.)",
+                "Demanda",
+                "Demanda transporte (b.c.)",
+                "Demanda en b.c.",
+                "Demanda en barras de central",
+            ],
+            "wind_mwh": ["Wind", "Eólica", "Eolica"],
+            "solar_pv_mwh": [
+                "Solar photovoltaic",
+                "Solar fotovoltaica",
+            ],
+            "solar_thermal_mwh": [
+                "Solar thermal",
+                "Solar térmica",
+                "Solar termica",
+            ],
+            "nuclear_mwh": ["Nuclear"],
+            "hydro_mwh": [
+                "Hydro",
+                "Hydraulic",
+                "Hydroelectric",
+                "Hidráulica",
+                "Hidraulica",
+            ],
+            "pumped_storage_mwh": [
+                "Pumped storage",
+                "Pumped-storage generation",
+                "Turbinación bombeo",
+                "Turbinacion bombeo",
+            ],
+            "pumped_consumption_mwh": [
+                "Pumped storage consumption",
+                "Pumping consumption",
+                "Consumos en bombeo",
+                "Consumo en bombeo",
+            ],
+            "combined_cycle_mwh": [
+                "Combined cycle",
+                "Ciclo combinado",
+            ],
+            "net_imports_mwh": [
+                "International exchanges balance",
+                "Cross-border exchange balance",
+                "Saldo intercambios internacionales",
+                "Saldo de intercambios",
+            ],
+        }
+    )
+
     path.write_text(
         yaml.safe_dump(config, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
@@ -91,16 +122,16 @@ def repair_config() -> None:
 def repair_http_headers() -> None:
     path = ROOT / "src/spain_power/io_utils.py"
     text = path.read_text(encoding="utf-8")
-    old = 'session.headers.update({"User-Agent": "Spain-Power-Market-Platform/0.1"})'
-    new = '''session.headers.update(
+    pattern = re.compile(r"session\.headers\.update\(.*?\)\n    return session", re.S)
+    replacement = '''session.headers.update(
         {
             "User-Agent": "Spain-Power-Market-Platform/0.1",
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
-    )'''
-    if old in text:
-        text = text.replace(old, new)
+    )
+    return session'''
+    text = pattern.sub(replacement, text, count=1)
     path.write_text(text, encoding="utf-8")
 
 
@@ -114,21 +145,12 @@ def repair_redata_default() -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def replace_function_block(text: str, start_name: str, next_name: str, replacement: str) -> str:
-    start = text.index(f"def {start_name}")
-    end = text.index(f"\ndef {next_name}", start)
-    return text[:start] + replacement.rstrip() + "\n\n" + text[end + 1 :]
-
-
 def repair_features() -> None:
     path = ROOT / "src/spain_power/features.py"
     text = path.read_text(encoding="utf-8")
 
     aggregate = '''def aggregate_redata_daily(balance: pd.DataFrame, config: dict) -> pd.DataFrame:
-    """Convert the daily REData electrical balance into one row per date.
-
-    The balance widget reports daily energy, so component columns are MWh.
-    """
+    """Convert the REData daily balance into one energy row per delivery date."""
     frame = balance.copy()
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
     timezone = config["project"]["timezone"]
@@ -164,18 +186,23 @@ def repair_features() -> None:
             f"Missing: {missing}. Available series: {available}"
         )
 
-    output = pd.DataFrame({"delivery_date": sorted(frame["delivery_date"].unique())})
+    output = pd.DataFrame(
+        {"delivery_date": sorted(frame["delivery_date"].unique())}
+    )
     for canonical, source_column in selected.items():
         if source_column is None:
             output[canonical] = np.nan
             continue
         values = frame.groupby("delivery_date")[source_column].last()
-        output = output.merge(values.rename(canonical), on="delivery_date", how="left")
+        output = output.merge(
+            values.rename(canonical),
+            on="delivery_date",
+            how="left",
+        )
 
-    output["solar_mwh"] = output[["solar_pv_mwh", "solar_thermal_mwh"]].sum(
-        axis=1,
-        min_count=1,
-    )
+    output["solar_mwh"] = output[
+        ["solar_pv_mwh", "solar_thermal_mwh"]
+    ].sum(axis=1, min_count=1)
     return output'''
 
     build = '''def build_model_frame(
@@ -185,6 +212,20 @@ def repair_features() -> None:
 ) -> pd.DataFrame:
     frame = weather_daily.merge(system_daily, on="delivery_date", how="outer")
     frame = frame.merge(prices_daily, on="delivery_date", how="outer")
+    frame["delivery_date"] = pd.to_datetime(frame["delivery_date"]).dt.normalize()
+
+    # Preserve calendar-day spacing even when today's physical balance is not yet
+    # published. This keeps a two-day system lag equal to target_date minus 2 days.
+    calendar = pd.DataFrame(
+        {
+            "delivery_date": pd.date_range(
+                frame["delivery_date"].min(),
+                frame["delivery_date"].max(),
+                freq="D",
+            )
+        }
+    )
+    frame = calendar.merge(frame, on="delivery_date", how="left")
     frame = frame.sort_values("delivery_date").reset_index(drop=True)
     frame = add_calendar_features(frame)
 
@@ -199,9 +240,6 @@ def repair_features() -> None:
         if source not in frame.columns:
             frame[source] = np.nan
         frame[f"target_{source}"] = frame[source]
-
-        # Before tomorrow's auction, yesterday is the latest fully observed
-        # system-balance day; that is a two-calendar-day lag from the target.
         frame[f"lag_{name}_2"] = frame[source].shift(2)
         frame[f"lag_{name}_7"] = frame[source].shift(7)
         frame[f"roll_{name}_7"] = (
@@ -236,20 +274,18 @@ def repair_features() -> None:
     frame["lag_spain_portugal_spread_1"] = spread.shift(1)
     return frame'''
 
-    if "The balance widget reports daily energy" not in text:
-        text = replace_function_block(
-            text,
-            "aggregate_redata_daily",
-            "_weighted_group_daily",
-            aggregate,
-        )
-    if "Before tomorrow's auction" not in text:
-        text = replace_function_block(
-            text,
-            "build_model_frame",
-            "base_feature_columns",
-            build,
-        )
+    text = replace_function_block(
+        text,
+        "aggregate_redata_daily",
+        "_weighted_group_daily",
+        aggregate,
+    )
+    text = replace_function_block(
+        text,
+        "build_model_frame",
+        "base_feature_columns",
+        build,
+    )
     path.write_text(text, encoding="utf-8")
 
 
@@ -263,16 +299,14 @@ def repair_modeling() -> None:
 def repair_pipeline() -> None:
     path = ROOT / "src/spain_power/pipeline.py"
     text = path.read_text(encoding="utf-8")
-    marker = "def daily_forecast"
-    start = text.index(marker)
+    start = text.index("def daily_forecast")
     tail = '''def daily_forecast(config: dict) -> dict[str, Any]:
-    """Forecast tomorrow using only information available before the auction."""
+    """Refresh known data and forecast tomorrow without using future outturns."""
     today = pd.Timestamp.now(tz=config["project"]["timezone"]).date()
     yesterday = today - timedelta(days=1)
     lookback_start = today - timedelta(days=60)
     raw = Path(config["paths"]["raw_dir"])
 
-    # Today's day-ahead prices are known. Today's complete physical balance is not.
     collect_omie_range(
         lookback_start,
         today,
@@ -309,59 +343,13 @@ def daily_grade(config: dict) -> pd.DataFrame:
     write_risk_report(config)
     return grades
 '''
-    text = text[:start] + tail
-    path.write_text(text, encoding="utf-8")
+    path.write_text(text[:start] + tail, encoding="utf-8")
 
 
-def write_docs_and_test() -> None:
-    write(
-        "README.md",
-        '''# Spain Power Market Platform
-
-A component-based next-day forecasting and risk platform for the Spanish electricity market.
-
-## Model structure
-
-1. Collect OMIE Spanish and Portuguese day-ahead prices.
-2. Collect Red Eléctrica daily peninsular energy balance data.
-3. Collect multi-location weather forecasts from Open-Meteo.
-4. Forecast daily demand, wind, solar, nuclear and hydro energy in MWh.
-5. Build residual-energy features and predict the next-day Spanish peak price.
-6. Log forecasts, grade outturns and produce an illustrative risk report.
-
-The price target uses `arcsinh` so negative prices remain representable. Evaluation uses a chronological holdout and persistence benchmarks.
-
-## Colab setup
-
-```python
-!git clone https://github.com/Evanssdas/Spain-Market-Platform.git
-%cd /content/Spain-Market-Platform
-%pip install -q -r requirements.txt
-%pip install -q -e .
-!python scripts/repair_and_prepare.py
-!python -m pytest
-```
-
-## Training
-
-```bash
-python -m spain_power collect-history --start 2025-01-01 --end YYYY-MM-DD
-python -m spain_power train
-python -m spain_power forecast --target-date YYYY-MM-DD
-```
-
-## Important limitations
-
-- REData balance figures are daily energy in MWh, not instantaneous MW.
-- The first release predicts a daily peak price, not every quarter-hour.
-- Historical weather is a stitched forecast series rather than a perfect fixed-vintage backtest.
-- Behind-the-meter solar is not fully visible in the grid-generation series.
-- The VaR layer is educational and not a real trading mandate.
-''',
-    )
+def repair_documentation() -> None:
     write(
         "docs/model_card.md",
-        '''# Model Card
+        """# Model Card
 
 ## Intended use
 
@@ -373,17 +361,13 @@ Educational and portfolio-quality Spanish next-day power-market forecasting.
 - Daily wind, solar, nuclear and hydro energy in MWh
 - Daily maximum Spanish day-ahead price in €/MWh
 
-## Algorithms
-
-LightGBM regressors. The price target uses an `arcsinh` transformation.
-
 ## Evaluation
 
-Chronological holdout and persistence benchmarks. The second-stage price model is trained on time-series out-of-fold component forecasts.
+Chronological holdout and persistence benchmarks. The second-stage price model uses time-series out-of-fold component forecasts.
 
 ## Information timing
 
-Component actuals use a two-calendar-day lag for a tomorrow forecast, because today's complete physical balance is not known before the day-ahead auction. Today's already-published price can be used as a one-day price lag.
+For a tomorrow forecast, component actuals use a two-calendar-day lag because today's complete physical balance is not available before the day-ahead auction. Today's published day-ahead price can be used as a one-day price lag.
 
 ## Limitations
 
@@ -392,25 +376,12 @@ Component actuals use a two-calendar-day lag for a tomorrow forecast, because to
 - Public API schemas can change.
 - Behind-the-meter solar is not fully visible.
 - Hydro is partly dispatchable and difficult to forecast.
-- The model does not identify the marginal generating unit.
-- VaR omits liquidity, credit, collateral, shape and imbalance risk.
-''',
+- VaR is illustrative and omits liquidity, credit, collateral, shape and imbalance risk.
+""",
     )
     write(
         "docs/data_dictionary.md",
-        '''# Data Dictionary
-
-## OMIE period data
-
-| Column | Meaning |
-|---|---|
-| `delivery_date` | Spanish market delivery date |
-| `period` | OMIE market period number |
-| `timestamp_local` | Europe/Madrid delivery timestamp |
-| `timestamp_utc` | UTC delivery timestamp |
-| `resolution_minutes` | 60 for older data; 15 for current files |
-| `price_spain_eur_mwh` | Spanish day-ahead price |
-| `price_portugal_eur_mwh` | Portuguese day-ahead price |
+        """# Data Dictionary
 
 ## Daily REData energy targets
 
@@ -422,9 +393,14 @@ Component actuals use a two-calendar-day lag for a tomorrow forecast, because to
 | `nuclear_mwh` | Daily nuclear energy |
 | `hydro_mwh` | Daily hydro energy |
 
-Forecast records are append-only. Actual grading is stored separately.
-''',
+## OMIE price data
+
+Prices are stored in €/MWh at the market-period level and aggregated into daily peak, average and minimum features.
+""",
     )
+
+
+def write_timing_test() -> None:
     write(
         "tests/test_realtime_features.py",
         '''import pandas as pd
@@ -432,31 +408,31 @@ Forecast records are append-only. Actual grading is stored separately.
 from spain_power.features import build_model_frame
 
 
-def test_component_lags_respect_pre_auction_availability() -> None:
-    dates = pd.date_range("2026-01-01", periods=10, freq="D")
+def test_component_lags_use_calendar_day_spacing() -> None:
+    dates = pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-04"])
     system = pd.DataFrame(
         {
-            "delivery_date": dates,
-            "demand_mwh": range(100, 110),
-            "wind_mwh": range(20, 30),
-            "solar_mwh": range(10, 20),
-            "nuclear_mwh": range(30, 40),
-            "hydro_mwh": range(5, 15),
+            "delivery_date": dates[:2],
+            "demand_mwh": [100.0, 110.0],
+            "wind_mwh": [20.0, 21.0],
+            "solar_mwh": [10.0, 11.0],
+            "nuclear_mwh": [30.0, 31.0],
+            "hydro_mwh": [5.0, 6.0],
         }
     )
     prices = pd.DataFrame(
         {
             "delivery_date": dates,
-            "price_peak_eur_mwh": range(50, 60),
-            "spain_portugal_peak_spread": [0.0] * 10,
+            "price_peak_eur_mwh": [50.0, 51.0, None],
+            "spain_portugal_peak_spread": [0.0, 0.0, None],
         }
     )
     weather = pd.DataFrame({"delivery_date": dates})
     frame = build_model_frame(system, prices, weather)
 
+    target_row = frame.loc[frame["delivery_date"] == pd.Timestamp("2026-01-04")].iloc[0]
     assert "lag_demand_1" not in frame.columns
-    assert frame.loc[2, "lag_demand_2"] == 100
-    assert frame.loc[1, "lag_price_1"] == 50
+    assert target_row["lag_demand_2"] == 110.0
 ''',
     )
 
@@ -476,10 +452,10 @@ def main() -> None:
     repair_features()
     repair_modeling()
     repair_pipeline()
-    write_docs_and_test()
+    repair_documentation()
+    write_timing_test()
     ensure_pytest()
     print("Repository repaired successfully.")
-    print("Next: python -m pytest")
 
 
 if __name__ == "__main__":
