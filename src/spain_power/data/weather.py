@@ -9,6 +9,9 @@ import pandas as pd
 from spain_power.io_utils import build_session, request_json, upsert_time_series
 
 
+API_TIMEZONE = "GMT"
+
+
 def all_locations(config: dict) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
     for group, locations in config["weather_locations"].items():
@@ -24,11 +27,18 @@ def parse_open_meteo_hourly(
     group: str,
     weight: float,
 ) -> pd.DataFrame:
+    """Parse Open-Meteo data using an unambiguous UTC/GMT time axis.
+
+    Open-Meteo local clock timestamps repeat during the autumn daylight-saving
+    transition. Requesting GMT avoids duplicate 02:00 local timestamps and lets
+    the feature layer convert UTC into Europe/Madrid safely afterwards.
+    """
     hourly = payload.get("hourly")
     if not isinstance(hourly, dict) or "time" not in hourly:
         raise ValueError("Open-Meteo response does not contain hourly data.")
 
-    frame = pd.DataFrame({"timestamp_local": pd.to_datetime(hourly["time"])})
+    timestamps = pd.to_datetime(hourly["time"], errors="raise")
+    frame = pd.DataFrame({"timestamp_local": timestamps})
     for key, values in hourly.items():
         if key == "time":
             continue
@@ -36,13 +46,20 @@ def parse_open_meteo_hourly(
             raise ValueError(f"Open-Meteo variable length mismatch: {key}")
         frame[key] = values
 
-    timezone = payload.get("timezone", "Europe/Madrid")
+    payload_timezone = str(payload.get("timezone", API_TIMEZONE))
     if frame["timestamp_local"].dt.tz is None:
-        frame["timestamp_local"] = frame["timestamp_local"].dt.tz_localize(
-            timezone,
-            ambiguous="infer",
-            nonexistent="shift_forward",
-        )
+        if payload_timezone.upper() in {"GMT", "UTC"}:
+            frame["timestamp_local"] = frame["timestamp_local"].dt.tz_localize("UTC")
+        else:
+            # Defensive fallback for externally supplied payloads. Ambiguous
+            # autumn timestamps are marked missing rather than crashing a run.
+            frame["timestamp_local"] = frame["timestamp_local"].dt.tz_localize(
+                payload_timezone,
+                ambiguous="NaT",
+                nonexistent="shift_forward",
+            )
+            frame = frame.loc[frame["timestamp_local"].notna()].copy()
+
     frame["timestamp_utc"] = frame["timestamp_local"].dt.tz_convert("UTC")
     frame["location"] = location_name
     frame["group"] = group
@@ -88,7 +105,9 @@ def fetch_weather_range(
                 "start_date": chunk_start.isoformat(),
                 "end_date": chunk_end.isoformat(),
                 "hourly": variables,
-                "timezone": source.get("timezone", "Europe/Madrid"),
+                # Always request GMT. Daily Spanish features are constructed
+                # later by converting these UTC timestamps to Europe/Madrid.
+                "timezone": API_TIMEZONE,
                 "wind_speed_unit": "ms",
             }
             payload = request_json(
