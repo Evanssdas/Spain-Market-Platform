@@ -27,7 +27,13 @@ def build_session(retry_attempts: int = 4) -> requests.Session:
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
-    session.headers.update({"User-Agent": "Spain-Power-Market-Platform/0.1"})
+    session.headers.update(
+        {
+            "User-Agent": "Spain-Power-Market-Platform/0.1",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+    )
     return session
 
 

@@ -1,0 +1,21 @@
+Metadata-Version: 2.4
+Name: spain-power-market-platform
+Version: 0.1.0
+Summary: Component-based Spanish power-market forecasting and risk platform
+Author: Evangelos Daskalakis
+License: MIT
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: holidays<1,>=0.70
+Requires-Dist: joblib<2,>=1.4
+Requires-Dist: lightgbm<5,>=4.5
+Requires-Dist: numpy<3,>=2.0
+Requires-Dist: pandas<3,>=2.2
+Requires-Dist: pyarrow<20,>=17
+Requires-Dist: PyYAML<7,>=6.0
+Requires-Dist: requests<3,>=2.32
+Requires-Dist: scikit-learn<2,>=1.5
+Dynamic: license-file
+
+

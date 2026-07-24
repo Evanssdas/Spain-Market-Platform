@@ -124,17 +124,17 @@ def create_forecast(
             config,
         ),
         "model_version": bundle["model_version"],
-        "forecast_demand_mw": component_predictions["demand"],
-        "forecast_wind_mw": component_predictions["wind"],
-        "forecast_solar_mw": component_predictions["solar"],
-        "forecast_nuclear_mw": component_predictions["nuclear"],
-        "forecast_hydro_mw": component_predictions["hydro"],
-        "forecast_variable_residual_mw": (
+        "forecast_demand_mwh": component_predictions["demand"],
+        "forecast_wind_mwh": component_predictions["wind"],
+        "forecast_solar_mwh": component_predictions["solar"],
+        "forecast_nuclear_mwh": component_predictions["nuclear"],
+        "forecast_hydro_mwh": component_predictions["hydro"],
+        "forecast_variable_residual_mwh": (
             component_predictions["demand"]
             - component_predictions["wind"]
             - component_predictions["solar"]
         ),
-        "forecast_firm_residual_mw": (
+        "forecast_firm_residual_mwh": (
             component_predictions["demand"]
             - component_predictions["wind"]
             - component_predictions["solar"]

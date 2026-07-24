@@ -38,7 +38,7 @@ def write_model_performance(bundle: dict[str, Any], config: dict) -> Path:
             "Negative improvement means the model lost to persistence on the "
             "chronological holdout and must be reported honestly.",
             "",
-            "Component errors are in MW; peak-price errors are in €/MWh.",
+            "Component errors are in MWh; peak-price errors are in €/MWh.",
         ]
     )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -55,13 +55,13 @@ _Generated {prediction['issued_at_utc']}. Forecasts are model outputs, not marke
 |---|---:|
 | Target date | **{prediction['target_date']}** |
 | Issue timing | **{prediction['issue_timing']}** |
-| Demand | {prediction['forecast_demand_mw']:,.0f} MW |
-| Wind | {prediction['forecast_wind_mw']:,.0f} MW |
-| Solar | {prediction['forecast_solar_mw']:,.0f} MW |
-| Nuclear | {prediction['forecast_nuclear_mw']:,.0f} MW |
-| Hydro | {prediction['forecast_hydro_mw']:,.0f} MW |
-| Variable residual demand | {prediction['forecast_variable_residual_mw']:,.0f} MW |
-| Firm residual demand | {prediction['forecast_firm_residual_mw']:,.0f} MW |
+| Demand | {prediction['forecast_demand_mwh']:,.0f} MWh |
+| Wind | {prediction['forecast_wind_mwh']:,.0f} MWh |
+| Solar | {prediction['forecast_solar_mwh']:,.0f} MWh |
+| Nuclear | {prediction['forecast_nuclear_mwh']:,.0f} MWh |
+| Hydro | {prediction['forecast_hydro_mwh']:,.0f} MWh |
+| Variable residual demand | {prediction['forecast_variable_residual_mwh']:,.0f} MWh |
+| Firm residual demand | {prediction['forecast_firm_residual_mwh']:,.0f} MWh |
 | Daily peak price | **€{prediction['forecast_peak_price_eur_mwh']:,.2f}/MWh** |
 
 ## Model identity
@@ -101,7 +101,7 @@ def write_risk_report(
 
 - Target date: **{prediction['target_date']}**
 - Forecast daily peak: **€{prediction['forecast_peak_price_eur_mwh']:,.2f}/MWh**
-- Forecast firm residual demand: **{prediction['forecast_firm_residual_mw']:,.0f} MW**
+- Forecast firm residual demand: **{prediction['forecast_firm_residual_mwh']:,.0f} MWh**
 """
 
     content = f"""# Spain Daily Peak Price Risk Report

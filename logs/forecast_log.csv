@@ -1,0 +1,2 @@
+issued_at_utc,target_date,issue_timing,model_version,forecast_demand_mwh,forecast_wind_mwh,forecast_solar_mwh,forecast_nuclear_mwh,forecast_hydro_mwh,forecast_variable_residual_mwh,forecast_firm_residual_mwh,forecast_peak_price_eur_mwh,training_end,forecast_id
+2026-07-24T01:36:20.043113+00:00,2026-07-25,pre_auction,20260724T013523Z,678245.7294613901,188169.98451103,259768.73955722884,151033.39206256493,50868.69674524136,230307.0053931312,79273.61333056627,114.69106572730531,2026-07-23,411e65cbe4754575

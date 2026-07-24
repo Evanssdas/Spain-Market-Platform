@@ -34,26 +34,26 @@ def grade_available_forecasts(config: dict) -> pd.DataFrame:
             "forecast_id": merged["forecast_id"],
             "target_date": merged["target_date"],
             "graded_at_utc": pd.Timestamp.now(tz="UTC").isoformat(),
-            "actual_demand_mw": merged["demand_mw"],
-            "actual_wind_mw": merged["wind_mw"],
-            "actual_solar_mw": merged["solar_mw"],
-            "actual_nuclear_mw": merged["nuclear_mw"],
-            "actual_hydro_mw": merged["hydro_mw"],
+            "actual_demand_mwh": merged["demand_mwh"],
+            "actual_wind_mwh": merged["wind_mwh"],
+            "actual_solar_mwh": merged["solar_mwh"],
+            "actual_nuclear_mwh": merged["nuclear_mwh"],
+            "actual_hydro_mwh": merged["hydro_mwh"],
             "actual_peak_price_eur_mwh": merged["price_peak_eur_mwh"],
-            "demand_error_mw": (
-                merged["forecast_demand_mw"] - merged["demand_mw"]
+            "demand_error_mwh": (
+                merged["forecast_demand_mwh"] - merged["demand_mwh"]
             ),
-            "wind_error_mw": (
-                merged["forecast_wind_mw"] - merged["wind_mw"]
+            "wind_error_mwh": (
+                merged["forecast_wind_mwh"] - merged["wind_mwh"]
             ),
-            "solar_error_mw": (
-                merged["forecast_solar_mw"] - merged["solar_mw"]
+            "solar_error_mwh": (
+                merged["forecast_solar_mwh"] - merged["solar_mwh"]
             ),
-            "nuclear_error_mw": (
-                merged["forecast_nuclear_mw"] - merged["nuclear_mw"]
+            "nuclear_error_mwh": (
+                merged["forecast_nuclear_mwh"] - merged["nuclear_mwh"]
             ),
-            "hydro_error_mw": (
-                merged["forecast_hydro_mw"] - merged["hydro_mw"]
+            "hydro_error_mwh": (
+                merged["forecast_hydro_mwh"] - merged["hydro_mwh"]
             ),
             "price_error_eur_mwh": (
                 merged["forecast_peak_price_eur_mwh"]

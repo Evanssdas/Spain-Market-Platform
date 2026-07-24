@@ -1,0 +1,2 @@
+[console_scripts]
+spain-power = spain_power.cli:main

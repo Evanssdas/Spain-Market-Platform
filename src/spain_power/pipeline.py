@@ -133,15 +133,40 @@ def refresh_actuals(start: date, end: date, config: dict) -> None:
 
 
 def daily_forecast(config: dict) -> dict[str, Any]:
+    """Refresh known data and forecast tomorrow without using future outturns."""
     today = pd.Timestamp.now(tz=config["project"]["timezone"]).date()
-    refresh_actuals(today - timedelta(days=10), today, config)
+    yesterday = today - timedelta(days=1)
+    lookback_start = today - timedelta(days=60)
+    raw = Path(config["paths"]["raw_dir"])
+
+    collect_omie_range(
+        lookback_start,
+        today,
+        output_path=raw / "omie_prices.parquet",
+        config=config,
+        timezone=config["project"]["timezone"],
+    )
+    collect_redata_range(
+        lookback_start,
+        yesterday,
+        output_path=raw / "redata_balance.parquet",
+        config=config,
+    )
+    collect_weather_range(
+        lookback_start,
+        yesterday,
+        output_path=raw / "weather_historical.parquet",
+        config=config,
+        historical=True,
+    )
+    process_all(config)
     return forecast(today + timedelta(days=1), config)
 
 
 def daily_grade(config: dict) -> pd.DataFrame:
     today = pd.Timestamp.now(tz=config["project"]["timezone"]).date()
     refresh_actuals(
-        today - timedelta(days=10),
+        today - timedelta(days=60),
         today - timedelta(days=1),
         config,
     )

@@ -102,18 +102,18 @@ def make_price_features(
             values = predictions.reindex(frame.index).to_numpy(dtype=float)
         else:
             values = np.asarray(predictions, dtype=float)
-        output[f"pred_{component}_mw"] = values
+        output[f"pred_{component}_mwh"] = values
 
-    output["pred_variable_residual_mw"] = (
-        output["pred_demand_mw"]
-        - output["pred_wind_mw"]
-        - output["pred_solar_mw"]
+    output["pred_variable_residual_mwh"] = (
+        output["pred_demand_mwh"]
+        - output["pred_wind_mwh"]
+        - output["pred_solar_mwh"]
     )
-    output["pred_firm_residual_mw"] = (
-        output["pred_variable_residual_mw"] - output["pred_nuclear_mw"]
+    output["pred_firm_residual_mwh"] = (
+        output["pred_variable_residual_mwh"] - output["pred_nuclear_mwh"]
     )
-    output["pred_hydro_adjusted_residual_mw"] = (
-        output["pred_firm_residual_mw"] - output["pred_hydro_mw"]
+    output["pred_hydro_adjusted_residual_mwh"] = (
+        output["pred_firm_residual_mwh"] - output["pred_hydro_mwh"]
     )
     return output
 
@@ -161,7 +161,7 @@ def train_all_models(frame: pd.DataFrame, config: dict) -> dict[str, Any]:
         metrics[component] = _evaluation(
             frame.loc[holdout_index, target],
             prediction.loc[holdout_index].to_numpy(),
-            frame.loc[holdout_index, f"lag_{component}_1"],
+            frame.loc[holdout_index, f"lag_{component}_2"],
         ).as_dict()
 
     # Price evaluation: train with time-series out-of-fold component forecasts.

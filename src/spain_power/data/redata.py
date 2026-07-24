@@ -109,7 +109,7 @@ def fetch_redata_balance(start: date, end: date, *, config: dict) -> pd.DataFram
         params = {
             "start_date": f"{chunk_start.isoformat()}T00:00",
             "end_date": f"{chunk_end.isoformat()}T23:59",
-            "time_trunc": source.get("time_trunc", "hour"),
+            "time_trunc": source.get("time_trunc", "day"),
             "geo_trunc": source.get("geo_trunc", "electric_system"),
             "geo_limit": source.get("geo_limit", "peninsular"),
             "geo_ids": source.get("geo_ids", 8741),

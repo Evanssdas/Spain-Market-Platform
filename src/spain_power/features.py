@@ -47,6 +47,7 @@ def aggregate_omie_daily(prices: pd.DataFrame) -> pd.DataFrame:
 
 
 def aggregate_redata_daily(balance: pd.DataFrame, config: dict) -> pd.DataFrame:
+    """Convert the REData daily balance into one energy row per delivery date."""
     frame = balance.copy()
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
     timezone = config["project"]["timezone"]
@@ -62,22 +63,44 @@ def aggregate_redata_daily(balance: pd.DataFrame, config: dict) -> pd.DataFrame:
         canonical: _find_column(frame.columns, alias_list)
         for canonical, alias_list in aliases.items()
     }
-    output = pd.DataFrame({"delivery_date": sorted(frame["delivery_date"].unique())})
+    required = [
+        "demand_mwh",
+        "wind_mwh",
+        "solar_pv_mwh",
+        "solar_thermal_mwh",
+        "nuclear_mwh",
+        "hydro_mwh",
+    ]
+    missing = [name for name in required if selected.get(name) is None]
+    if missing:
+        available = sorted(
+            column
+            for column in frame.columns
+            if column not in {"timestamp", "delivery_date"}
+        )
+        raise ValueError(
+            "REData aliases did not match the live response. "
+            f"Missing: {missing}. Available series: {available}"
+        )
 
+    output = pd.DataFrame(
+        {"delivery_date": sorted(frame["delivery_date"].unique())}
+    )
     for canonical, source_column in selected.items():
         if source_column is None:
             output[canonical] = np.nan
             continue
-        grouped = frame.groupby("delivery_date")[source_column]
-        values = grouped.max() if canonical == "demand_mw" else grouped.mean()
-        output = output.merge(values.rename(canonical), on="delivery_date", how="left")
+        values = frame.groupby("delivery_date")[source_column].last()
+        output = output.merge(
+            values.rename(canonical),
+            on="delivery_date",
+            how="left",
+        )
 
-    output["solar_mw"] = output[["solar_pv_mw", "solar_thermal_mw"]].sum(
-        axis=1,
-        min_count=1,
-    )
+    output["solar_mwh"] = output[
+        ["solar_pv_mwh", "solar_thermal_mwh"]
+    ].sum(axis=1, min_count=1)
     return output
-
 
 def _weighted_group_daily(group_frame: pd.DataFrame, group: str) -> pd.DataFrame:
     frame = group_frame.copy()
@@ -228,38 +251,60 @@ def build_model_frame(
 ) -> pd.DataFrame:
     frame = weather_daily.merge(system_daily, on="delivery_date", how="outer")
     frame = frame.merge(prices_daily, on="delivery_date", how="outer")
+    frame["delivery_date"] = pd.to_datetime(frame["delivery_date"]).dt.normalize()
+
+    # Preserve calendar-day spacing even when today's physical balance is not yet
+    # published. This keeps a two-day system lag equal to target_date minus 2 days.
+    calendar = pd.DataFrame(
+        {
+            "delivery_date": pd.date_range(
+                frame["delivery_date"].min(),
+                frame["delivery_date"].max(),
+                freq="D",
+            )
+        }
+    )
+    frame = calendar.merge(frame, on="delivery_date", how="left")
     frame = frame.sort_values("delivery_date").reset_index(drop=True)
     frame = add_calendar_features(frame)
 
-    targets = {
-        "demand": "demand_mw",
-        "wind": "wind_mw",
-        "solar": "solar_mw",
-        "nuclear": "nuclear_mw",
-        "hydro": "hydro_mw",
-        "price": "price_peak_eur_mwh",
+    component_targets = {
+        "demand": "demand_mwh",
+        "wind": "wind_mwh",
+        "solar": "solar_mwh",
+        "nuclear": "nuclear_mwh",
+        "hydro": "hydro_mwh",
     }
-    for name, source in targets.items():
+    for name, source in component_targets.items():
         if source not in frame.columns:
             frame[source] = np.nan
         frame[f"target_{source}"] = frame[source]
-        frame[f"lag_{name}_1"] = frame[source].shift(1)
         frame[f"lag_{name}_2"] = frame[source].shift(2)
         frame[f"lag_{name}_7"] = frame[source].shift(7)
         frame[f"roll_{name}_7"] = (
-            frame[source].shift(1).rolling(7, min_periods=3).mean()
+            frame[source].shift(2).rolling(7, min_periods=3).mean()
         )
         frame[f"roll_{name}_28"] = (
-            frame[source].shift(1).rolling(28, min_periods=7).mean()
+            frame[source].shift(2).rolling(28, min_periods=7).mean()
         )
 
-    frame["roll_price_change_vol30"] = (
-        frame["price_peak_eur_mwh"]
-        .diff()
-        .shift(1)
-        .rolling(30, min_periods=10)
-        .std()
+    price_source = "price_peak_eur_mwh"
+    if price_source not in frame.columns:
+        frame[price_source] = np.nan
+    frame["target_price_peak_eur_mwh"] = frame[price_source]
+    frame["lag_price_1"] = frame[price_source].shift(1)
+    frame["lag_price_2"] = frame[price_source].shift(2)
+    frame["lag_price_7"] = frame[price_source].shift(7)
+    frame["roll_price_7"] = (
+        frame[price_source].shift(1).rolling(7, min_periods=3).mean()
     )
+    frame["roll_price_28"] = (
+        frame[price_source].shift(1).rolling(28, min_periods=7).mean()
+    )
+    frame["roll_price_change_vol30"] = (
+        frame[price_source].diff().shift(1).rolling(30, min_periods=10).std()
+    )
+
     spread = (
         frame["spain_portugal_peak_spread"]
         if "spain_portugal_peak_spread" in frame
@@ -267,7 +312,6 @@ def build_model_frame(
     )
     frame["lag_spain_portugal_spread_1"] = spread.shift(1)
     return frame
-
 
 def base_feature_columns(frame: pd.DataFrame) -> list[str]:
     prefixes = ("wx_", "cal_", "lag_", "roll_")
