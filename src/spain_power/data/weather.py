@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import time
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
 import pandas as pd
+import requests
 
-from spain_power.io_utils import build_session, request_json, upsert_time_series
+from spain_power.io_utils import build_session, upsert_time_series
 
 
 API_TIMEZONE = "GMT"
@@ -27,12 +29,7 @@ def parse_open_meteo_hourly(
     group: str,
     weight: float,
 ) -> pd.DataFrame:
-    """Parse Open-Meteo data using an unambiguous UTC/GMT time axis.
-
-    Open-Meteo local clock timestamps repeat during the autumn daylight-saving
-    transition. Requesting GMT avoids duplicate 02:00 local timestamps and lets
-    the feature layer convert UTC into Europe/Madrid safely afterwards.
-    """
+    """Parse Open-Meteo data using an unambiguous UTC/GMT time axis."""
     hourly = payload.get("hourly")
     if not isinstance(hourly, dict) or "time" not in hourly:
         raise ValueError("Open-Meteo response does not contain hourly data.")
@@ -51,8 +48,6 @@ def parse_open_meteo_hourly(
         if payload_timezone.upper() in {"GMT", "UTC"}:
             frame["timestamp_local"] = frame["timestamp_local"].dt.tz_localize("UTC")
         else:
-            # Defensive fallback for externally supplied payloads. Ambiguous
-            # autumn timestamps are marked missing rather than crashing a run.
             frame["timestamp_local"] = frame["timestamp_local"].dt.tz_localize(
                 payload_timezone,
                 ambiguous="NaT",
@@ -75,6 +70,40 @@ def _chunks(start: date, end: date, chunk_days: int) -> Iterable[tuple[date, dat
         current = chunk_end + timedelta(days=1)
 
 
+def _request_payload(
+    session: requests.Session,
+    url: str,
+    *,
+    params: dict[str, Any],
+    timeout: float,
+    attempts: int,
+) -> dict[str, Any] | list[dict[str, Any]]:
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            response = session.get(url, params=params, timeout=timeout)
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, (dict, list)):
+                raise ValueError("Open-Meteo returned an unexpected JSON structure.")
+            return payload
+        except (requests.RequestException, ValueError) as exc:
+            last_error = exc
+            if attempt == attempts:
+                break
+            wait_seconds = min(30, 2 ** attempt)
+            print(
+                f"Open-Meteo request failed for {params['start_date']} to "
+                f"{params['end_date']} (attempt {attempt}/{attempts}); "
+                f"retrying in {wait_seconds}s: {exc}"
+            )
+            time.sleep(wait_seconds)
+    raise RuntimeError(
+        f"Open-Meteo failed after {attempts} attempts for "
+        f"{params['start_date']} to {params['end_date']}: {last_error}"
+    )
+
+
 def fetch_weather_range(
     start: date,
     end: date,
@@ -88,37 +117,50 @@ def fetch_weather_range(
         if historical
         else source["forecast_url"]
     )
-    session = build_session(int(source.get("retry_attempts", 4)))
+    retry_attempts = max(6, int(source.get("retry_attempts", 4)))
+    session = build_session(retry_attempts)
     variables = ",".join(source["hourly_variables"])
     frames: list[pd.DataFrame] = []
-    chunk_days = (
-        int(source.get("chunk_days", 180))
-        if historical
-        else max(1, (end - start).days + 1)
-    )
+    locations = all_locations(config)
 
-    for location in all_locations(config):
-        for chunk_start, chunk_end in _chunks(start, end, chunk_days):
-            params = {
-                "latitude": location["latitude"],
-                "longitude": location["longitude"],
-                "start_date": chunk_start.isoformat(),
-                "end_date": chunk_end.isoformat(),
-                "hourly": variables,
-                # Always request GMT. Daily Spanish features are constructed
-                # later by converting these UTC timestamps to Europe/Madrid.
-                "timezone": API_TIMEZONE,
-                "wind_speed_unit": "ms",
-            }
-            payload = request_json(
-                session,
-                base_url,
-                params=params,
-                timeout=float(source.get("timeout_seconds", 45)),
+    # Smaller historical chunks are much less likely to time out. All locations
+    # are sent in one request, reducing hundreds of calls to only a few chunks.
+    configured_chunk = int(source.get("chunk_days", 180))
+    chunk_days = min(configured_chunk, 60) if historical else max(1, (end - start).days + 1)
+    timeout = max(120.0, float(source.get("timeout_seconds", 45)))
+
+    latitudes = ",".join(str(location["latitude"]) for location in locations)
+    longitudes = ",".join(str(location["longitude"]) for location in locations)
+
+    for chunk_start, chunk_end in _chunks(start, end, chunk_days):
+        params = {
+            "latitude": latitudes,
+            "longitude": longitudes,
+            "start_date": chunk_start.isoformat(),
+            "end_date": chunk_end.isoformat(),
+            "hourly": variables,
+            "timezone": API_TIMEZONE,
+            "wind_speed_unit": "ms",
+        }
+        payload = _request_payload(
+            session,
+            base_url,
+            params=params,
+            timeout=timeout,
+            attempts=retry_attempts,
+        )
+
+        payloads = payload if isinstance(payload, list) else [payload]
+        if len(payloads) != len(locations):
+            raise ValueError(
+                "Open-Meteo returned a different number of locations than requested: "
+                f"requested {len(locations)}, received {len(payloads)}."
             )
+
+        for location, location_payload in zip(locations, payloads):
             frames.append(
                 parse_open_meteo_hourly(
-                    payload,
+                    location_payload,
                     location_name=location["name"],
                     group=location["group"],
                     weight=float(location["weight"]),
