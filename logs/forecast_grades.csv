@@ -1,0 +1,2 @@
+forecast_id,target_date,graded_at_utc,actual_demand_mwh,actual_wind_mwh,actual_solar_mwh,actual_nuclear_mwh,actual_hydro_mwh,actual_peak_price_eur_mwh,demand_error_mwh,wind_error_mwh,solar_error_mwh,nuclear_error_mwh,hydro_error_mwh,price_error_eur_mwh,price_absolute_error_eur_mwh
+411e65cbe4754575,2026-07-25,2026-07-26T08:44:37.105299+00:00,652120.1,162892.4,220725.6,165587.1,49197.3,175.92,26125.629461390083,25277.58451103,39043.13955722883,-14553.707937435072,1671.3967452413563,-61.22893427269467,61.22893427269467
