@@ -1,5 +1,4 @@
 delivery_date,price_peak_eur_mwh,price_average_eur_mwh,price_minimum_eur_mwh,portugal_peak_eur_mwh,periods,negative_price_periods,spain_portugal_peak_spread
-2026-06-25,150.01,79.563125,1.0,150.01,96,0,0.0
 2026-06-26,151.43,87.49927083333334,3.08,151.43,96,0,0.0
 2026-06-27,161.45,70.193125,-0.01,161.45,96,7,0.0
 2026-06-28,141.99,66.46052083333333,0.0,141.99,96,0,0.0
