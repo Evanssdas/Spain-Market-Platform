@@ -6,8 +6,8 @@ _Observed OMIE prices plus an illustrative paper position._
 
 | Item | Value | Type |
 |---|---:|---|
-| Latest observed daily peak | €212.09/MWh | market data |
-| 30-day volatility of daily changes | €24.62/MWh | calculated |
+| Latest observed daily peak | €278.48/MWh | market data |
+| 30-day volatility of daily changes | €27.51/MWh | calculated |
 | Paper position | long 100 MWh | assumption |
 | Paper capital | €500,000 | assumption |
 | 95% VaR appetite | €10,000 | assumption |
@@ -16,14 +16,14 @@ _Observed OMIE prices plus an illustrative paper position._
 
 | Position | VaR 95% | VaR 99% |
 |---|---:|---:|
-| Long 100 MWh | €4,050 | €5,728 |
+| Long 100 MWh | €4,524 | €6,399 |
 
 VaR is not a maximum possible loss.
 
 ## Volatility regime
 
-- 30-day volatility: **€24.62/MWh**
-- 90-day volatility: **€32.08/MWh**
+- 30-day volatility: **€27.51/MWh**
+- 90-day volatility: **€32.91/MWh**
 - Regime: **NORMAL**
 
 ## Absolute price-shock stresses
@@ -38,9 +38,15 @@ VaR is not a maximum possible loss.
 
 ## Position sizing
 
-- VaR-derived maximum: **247 MWh**
+- VaR-derived maximum: **221 MWh**
 - Separate volume maximum: **2,000 MWh**
-- Binding maximum: **247 MWh**
+- Binding maximum: **221 MWh**
+
+## Latest model forecast
+
+- Target date: **2026-09-11**
+- Forecast daily peak: **€149.04/MWh**
+- Forecast firm residual demand: **224,486 MWh**
 
 ## Limitations
 
