@@ -1,23 +1,23 @@
 # Spain Next-Day Forecast
 
-_Generated 2026-09-13T13:49:31.115606+00:00. Forecasts are model outputs, not market observations._
+_Generated 2026-09-14T16:40:47.825357+00:00. Forecasts are model outputs, not market observations._
 
 | Item | Forecast |
 |---|---:|
-| Target date | **2026-09-14** |
+| Target date | **2026-09-15** |
 | Issue timing | **post_auction** |
-| Demand | 690,850 MWh |
-| Wind | 65,158 MWh |
-| Solar | 213,969 MWh |
-| Nuclear | 161,947 MWh |
-| Hydro | 73,807 MWh |
-| Variable residual demand | 411,723 MWh |
-| Firm residual demand | 249,776 MWh |
-| Daily peak price | **€180.05/MWh** |
+| Demand | 708,603 MWh |
+| Wind | 109,276 MWh |
+| Solar | 202,680 MWh |
+| Nuclear | 162,458 MWh |
+| Hydro | 68,548 MWh |
+| Variable residual demand | 396,647 MWh |
+| Firm residual demand | 234,189 MWh |
+| Daily peak price | **€143.23/MWh** |
 
 ## Model identity
 
-- Forecast ID: `d90971c164c8be71`
+- Forecast ID: `9fed36889b10542f`
 - Model version: `20260724T013523Z`
 - Training data end: `2026-07-23`
 
