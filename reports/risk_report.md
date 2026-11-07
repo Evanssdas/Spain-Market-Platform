@@ -42,12 +42,6 @@ VaR is not a maximum possible loss.
 - Separate volume maximum: **2,000 MWh**
 - Binding maximum: **174 MWh**
 
-## Latest model forecast
-
-- Target date: **2026-11-07**
-- Forecast daily peak: **€158.01/MWh**
-- Forecast firm residual demand: **265,314 MWh**
-
 ## Limitations
 
 Educational only. Excludes transaction costs, liquidity, basis, shape, collateral,
