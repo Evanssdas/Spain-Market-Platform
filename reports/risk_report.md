@@ -23,7 +23,7 @@ VaR is not a maximum possible loss.
 ## Volatility regime
 
 - 30-day volatility: **€49.16/MWh**
-- 90-day volatility: **€41.24/MWh**
+- 90-day volatility: **€41.45/MWh**
 - Regime: **NORMAL**
 
 ## Absolute price-shock stresses
@@ -41,12 +41,6 @@ VaR is not a maximum possible loss.
 - VaR-derived maximum: **124 MWh**
 - Separate volume maximum: **2,000 MWh**
 - Binding maximum: **124 MWh**
-
-## Latest model forecast
-
-- Target date: **2026-11-18**
-- Forecast daily peak: **€71.75/MWh**
-- Forecast firm residual demand: **121,854 MWh**
 
 ## Limitations
 
